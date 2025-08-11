@@ -1,0 +1,7 @@
+roles/
+  elasticsearch/
+    tasks/
+      main.yml
+    templates/
+      elasticsearch.yml.j2
+

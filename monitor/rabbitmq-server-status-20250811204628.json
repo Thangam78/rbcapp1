@@ -1,0 +1,5 @@
+{
+    "service_name": "rabbitmq-server",
+    "service_status": "UP",
+    "host_name": "ubuntu-lab"
+}

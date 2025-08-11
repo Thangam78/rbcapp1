@@ -1,0 +1,72 @@
+---
+- name: Install and start PostgreSQL, RabbitMQ, and Elasticsearch
+  hosts: all
+  become: true
+
+  vars:
+    postgres_version: 14
+    elastic_version: "8.x"  # Can change to 7.x if needed
+
+  tasks:
+    # -------------------
+    # PostgreSQL
+    # -------------------
+    - name: Install PostgreSQL repository
+      apt:
+        name: "postgresql-{{ postgres_version }}"
+        state: present
+      register: postgres_install
+
+    - name: Ensure PostgreSQL service is enabled and running
+      service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    # -------------------
+    # RabbitMQ
+    # -------------------
+    - name: Install RabbitMQ repository and dependencies
+      apt:
+        name:
+          - rabbitmq-server
+        state: present
+      register: rabbit_install
+
+    - name: Ensure RabbitMQ service is enabled and running
+      service:
+        name: rabbitmq-server
+        state: started
+        enabled: true
+
+    # -------------------
+    # Elasticsearch
+    # -------------------
+    - name: Install apt-transport-https
+      apt:
+        name: apt-transport-https
+        state: present
+
+    - name: Add Elasticsearch GPG key
+      ansible.builtin.shell: |
+        wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | apt-key add -
+      args:
+        warn: false
+
+    - name: Add Elasticsearch repository
+      copy:
+        dest: /etc/apt/sources.list.d/elastic.list
+        content: "deb https://artifacts.elastic.co/packages/{{ elastic_version }}/apt stable main\n"
+
+    - name: Install Elasticsearch
+      apt:
+        name: elasticsearch
+        update_cache: true
+        state: present
+
+    - name: Ensure Elasticsearch service is enabled and running
+      service:
+        name: elasticsearch
+        state: started
+        enabled: true
+

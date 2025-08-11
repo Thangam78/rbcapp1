@@ -1,0 +1,16 @@
+---
+- name: Install prerequisites
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - rabbitmq-server
+    - erlang-nox
+
+- name: Ensure RabbitMQ service is started and enabled
+  service:
+    name: rabbitmq-server
+    state: started
+    enabled: yes
+

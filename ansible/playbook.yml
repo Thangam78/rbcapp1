@@ -1,0 +1,10 @@
+---
+- name: Install and configure httpd, rabbitmq, postgresql
+  hosts: localhost
+  become: yes
+  roles:
+    - httpd
+    - rabbitmq
+    - postgresql
+    - elasticsearch
+
