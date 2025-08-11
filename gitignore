@@ -1,0 +1,12 @@
+# Ignore Python virtual environments
+webservice/venv/
+
+# Optional: ignore Python cache files too
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Optional: ignore environment variable files
+.env
+
