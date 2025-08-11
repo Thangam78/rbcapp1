@@ -1,3 +1,19 @@
-[all]
-localhost ansible_connection=local ansible_become=true
+[webservers]
+host1 ansible_host=httpd_service ansible_connection=docker ansible_user=root ansible_remote_tmp=/tmp
 
+[messagequeue]
+host2 ansible_host=rabbitmq_service ansible_connection=docker ansible_user=root ansible_remote_tmp=/tmp
+
+[databases]
+host3 ansible_host=postgresql_service ansible_connection=docker ansible_user=root ansible_remote_tmp=/tmp
+
+#[monitoring]
+#monitoring_host ansible_host=rbcapp-monitoring ansible_connection=docker ansible_user=root ansible_remote_tmp=/tmp
+
+[rbcapp:children]
+webservers
+messagequeue
+databases
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
