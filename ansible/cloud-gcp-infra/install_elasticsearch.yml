@@ -1,0 +1,134 @@
+# install_elasticsearch.yml
+---
+- name: Install Elasticsearch on gcp-search-node
+  hosts: search_nodes # Targets the 'gcp-search-node' VM
+  become: yes
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+      tags: install
+
+    # --- New Tasks for Disk Preparation ---
+    - name: Ensure Elasticsearch data directory exists
+      ansible.builtin.file:
+        path: /var/lib/elasticsearch # Standard Elasticsearch data location
+        state: directory
+        owner: elasticsearch
+        group: elasticsearch # Group is 'elasticsearch' for Elasticsearch
+        mode: '0755' # Needs to be readable/writable by Elasticsearch user/group
+      tags: disk_prep
+
+    - name: Check if the data disk partition already exists
+      ansible.builtin.stat:
+        path: /dev/disk/by-id/google-gcp-search-node-data-disk-part1 # Check for partition symlink
+      register: elastic_data_disk_part1_stat
+      tags: disk_prep
+
+    - name: Partition the data disk if needed
+      community.general.parted:
+        device: /dev/disk/by-id/google-gcp-search-node-data-disk # Use the disk symlink
+        number: 1
+        part_type: primary
+        fs_type: ext4
+        state: present
+      when: not elastic_data_disk_part1_stat.stat.exists # Only partition if no partition found
+      tags: disk_prep
+
+    - name: Format the data disk partition if not already formatted
+      ansible.builtin.filesystem:
+        dev: /dev/disk/by-id/google-gcp-search-node-data-disk-part1 # Use the partition symlink
+        fstype: ext4
+        force: yes # Force format if it's not empty or type is wrong
+      when: not elastic_data_disk_part1_stat.stat.exists or not elastic_data_disk_part1_stat.stat.isdir # Only format if partition didn't exist or is not a directory
+      tags: disk_prep
+
+    - name: Mount data disk for Elasticsearch
+      ansible.builtin.mount:
+        path: /var/lib/elasticsearch # Standard Elasticsearch data dir
+        src: /dev/disk/by-id/google-gcp-search-node-data-disk-part1 # Use the stable partition symlink
+        fstype: ext4
+        state: mounted
+      tags: disk_prep
+
+    - name: Ensure correct ownership for Elasticsearch data directory after mounting
+      ansible.builtin.file:
+        path: /var/lib/elasticsearch
+        owner: elasticsearch
+        group: elasticsearch
+        mode: '0755' # Elasticsearch might need broader permissions here than Postgres
+        recurse: yes
+      tags: disk_prep
+
+    # --- End New Tasks for Disk Preparation ---
+
+    - name: Install required dependencies
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - default-jre # Or specific JDK for Elasticsearch version
+        state: present
+      tags: install
+
+    - name: Add Elasticsearch apt key
+      ansible.builtin.apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+      tags: install
+
+    - name: Add Elasticsearch apt repository
+      ansible.builtin.apt_repository:
+        repo: 'deb https://artifacts.elastic.co/packages/8.x/apt stable main' # Adjust 8.x for your version
+        state: present
+      tags: install
+
+    - name: Install Elasticsearch package
+      ansible.builtin.apt:
+        name: elasticsearch
+        state: present
+      tags: install
+
+    - name: Update Elasticsearch configuration (discovery.type for single node)
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^#discovery.seed_hosts:.*'
+        insertafter: '^#discovery.seed_hosts:.*'
+        line: 'discovery.type: single-node'
+      tags: config
+
+    - name: Ensure Elasticsearch service is running and enabled
+      ansible.builtin.service:
+        name: elasticsearch
+        state: started
+        enabled: yes
+      tags: service_start
+    
+    - name: Update Elasticsearch configuration (discovery.type for single node)
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^#discovery.seed_hosts:.*'
+        insertafter: '^#discovery.seed_hosts:.*'
+        line: 'discovery.type: single-node'
+
+    # Add this task to ensure initial_master_nodes is commented out
+    - name: Ensure cluster.initial_master_nodes is commented out
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^cluster\.initial_master_nodes:'
+        line: '# cluster.initial_master_nodes: <value>' # Placeholder, just ensure it's commented
+        state: present # Ensure the line exists
+        insertbefore: '^discovery.type: single-node' # Place before discovery.type for logic
+        # Replace the line if it's uncommented, ensuring it starts with '#'
+        backrefs: yes # Required for 'regexp' and 'line' to work as replacement
+        state: present
+        line: '# cluster.initial_master_nodes: ["gcp-search-node"]' # Ensure it's commented
+
+    # Note: Elasticsearch VMs often require setting vm.max_map_count
+    # - name: Set vm.max_map_count for Elasticsearch
+    #   ansible.posix.sysctl:
+    #     name: vm.max_map_count
+    #     value: '262144'
+    #     sysctl_set: yes
+    #     state: present
+    #     reload: yes
+    #   tags: config
