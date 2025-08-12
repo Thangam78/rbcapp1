@@ -1,0 +1,24 @@
+# install_rabbitmq.yml
+---
+- name: Install RabbitMQ on gcp-messaging
+  hosts: rabbitmq_servers # Targets the 'gcp-messaging' VM
+  become: yes
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+    - name: Install RabbitMQ server package (will pull Erlang dependencies)
+      ansible.builtin.apt:
+        name: rabbitmq-server
+        state: present
+    - name: Ensure RabbitMQ service is running and enabled
+      ansible.builtin.service:
+        name: rabbitmq-server
+        state: started
+        enabled: yes
+    # Note: If you need the management plugin, you'd add:
+    # - name: Enable RabbitMQ management plugin
+    #   community.rabbitmq.rabbitmq_plugin:
+    #     names: rabbitmq_management
+    #     state: enabled
+    #   notify: Restart RabbitMQ
