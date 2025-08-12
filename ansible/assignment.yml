@@ -5,7 +5,7 @@
   vars:
     disk_threshold: 80
     service_name: apache2          # Service to verify/install (adjust if needed)
-    alert_email: youremail@example.com  # Replace with your actual alert email
+    alert_email: thangam78@gmail.com  # Replace with your actual alert email
     rest_api_url: http://127.0.0.1:5000  # REST API endpoint for check-status
 
   tasks:
