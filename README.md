@@ -1,44 +1,31 @@
 # rbcapp1 Monitoring System
 
-This repository provides a complete monitoring solution for the **rbcapp1** application and its dependent services:
+## Overview
+This project provides a service monitoring solution for `rbcapp1`, which depends on three services:
+- Apache HTTP Server (`apache2`)
+- RabbitMQ (`rabbitmq-server`)
+- PostgreSQL (`postgresql`)
 
-- Apache2 (httpd)
-- RabbitMQ
-- PostgreSQL
-
-It includes a Python service monitoring script, a Flask REST API for status reporting and data insertion into Elasticsearch, and an Ansible playbook for automated service management and health checks.
-
----
-
-## Contents
-
-- `service_monitor.py` — Python script to monitor services locally and create JSON status files.
-- `app.py` — Flask REST API exposing healthcheck endpoints and allowing data insertion into Elasticsearch.
-- `assignment.yml` — Ansible playbook performing service installation verification, disk space checks with email alerts, and service status querying.
-- `inventory` — Ansible inventory file for localhost testing.
+The monitoring solution includes:
+- A Python script to locally check service status and create JSON status files.
+- A Flask REST API to expose service health status and insert data into Elasticsearch.
+- An Ansible playbook to perform installation verification, disk space checking with alerts, and REST API based status checking.
 
 ---
 
 ## Prerequisites
 
+- Elasticsearch instance accessible (default at `192.168.64.1:9200`)
+
+- Ansible installed on the control machine
+
+- Email system configured on hosts for disk space alerting (e.g., sendmail or postfix)
+
+- Services (`apache2`, `rabbitmq-server`, `postgresql`) installed or installable
+
 - Python 3.8 or higher
+
 - Required Python packages:
 
   ```bash
   pip install requests psycopg2-binary pika flask elasticsearch
-
-
-Service Monitor Script
-Usage
-Run the script to check service statuses locally:
-
-bash
-Copy
-Edit
-python3 service_monitor.py
-JSON status files are created in:
-
-bash
-Copy
-Edit
-~/rbcapp_monitoring_data/json_data/
