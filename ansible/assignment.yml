@@ -1,0 +1,85 @@
+---
+- name: rbcapp1 Service Monitoring & Actions
+  hosts: all
+  gather_facts: yes
+  vars:
+    disk_threshold: 80
+    service_name: apache2          # Service to verify/install (adjust if needed)
+    alert_email: youremail@example.com  # Replace with your actual alert email
+    rest_api_url: http://127.0.0.1:5000  # REST API endpoint for check-status
+
+  tasks:
+
+    - name: Verify service is installed (verify_install)
+      when: action == "verify_install"
+      block:
+        - name: "Check if package {{ service_name }} is installed"
+          ansible.builtin.shell: "dpkg -s {{ service_name }}"
+          register: pkg_check
+          ignore_errors: yes
+
+        - name: "Install the service if not installed (example: {{ service_name }})"
+          ansible.builtin.apt:
+            name: "{{ service_name }}"
+            state: present
+            update_cache: yes
+          when: pkg_check.rc != 0
+          become: yes
+
+        - name: "Show service install status"
+          ansible.builtin.debug:
+            msg: "{{ service_name }} is installed and ready."
+
+    - name: Check disk usage (check-disk)
+      when: action == "check-disk"
+      block:
+        - name: Get disk usage
+          ansible.builtin.shell: df -h --output=pcent,target | tail -n +2
+          register: disk_usage
+
+        - name: Find partitions over threshold
+          ansible.builtin.set_fact:
+            high_usage_partitions: >-
+              {{
+                disk_usage.stdout_lines
+                | select('search', '^[0-9]+%')
+                | select('match', '([8-9][0-9]|100)%')
+                | list
+              }}
+
+        - name: Alert if disk usage > threshold
+          ansible.builtin.mail:
+            to: "{{ alert_email }}"
+            subject: "Disk Usage Alert on {{ inventory_hostname }}"
+            body: |
+              The following partitions on {{ inventory_hostname }} are above {{ disk_threshold }}% usage:
+              {{ high_usage_partitions | join('\n') }}
+          when: high_usage_partitions | length > 0
+
+        - name: Show disk usage results
+          ansible.builtin.debug:
+            var: high_usage_partitions
+
+    - name: Check service status from REST API (check-status)
+      when: action == "check-status"
+      block:
+        - name: Query rbcapp1 monitoring API for all services
+          ansible.builtin.uri:
+            url: "{{ rest_api_url }}/healthcheck"
+            method: GET
+            return_content: yes
+          register: api_response
+
+        - name: Parse API response
+          ansible.builtin.set_fact:
+            service_data: "{{ api_response.json }}"
+
+        - name: Show rbcapp1 status
+          ansible.builtin.debug:
+            msg: "rbcapp1 status: {{ service_data.rbcapp1_status }}"
+
+        - name: Show services that are down
+          ansible.builtin.debug:
+            msg: >-
+              {% set down_services = service_data.services | dict2items | selectattr('value', '!=', 'UP') | map(attribute='key') | list %}
+              Down services: {{ down_services if down_services else 'All services are running' }}
