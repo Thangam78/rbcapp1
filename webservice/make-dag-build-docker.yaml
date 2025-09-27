@@ -1,0 +1,45 @@
+name: Deploy Airflow DAGs and Build Docker Images
+
+on:
+  push:
+    branches:
+      - 'dev'
+      - 'nonp/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      sync:
+        description: 'Enable DAG sync to storage (disable for dry-run)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  deploy-dags-and-build-images:
+    name: Generate DAGs and Build Docker Images
+    uses: bank/AFLOW-Workflows/.github/workflows/generate-dags-and-build-images.yml@dev
+    with:
+      values-dir: ./values
+      output-dir: ./output
+      dry-run: ${{ !inputs.sync && github.event_name == 'workflow_dispatch' }}
+      docker-base-dir: ./docker
+      image-tag: latest
+      registry: ""  # Will be fetched from Key Vault if empty
+    secrets: inherit
+    # Only run DAG sync on nonp/* branches or when triggered via workflow_dispatch with sync=true
+    # Docker build runs on push to dev/nonp/* or dispatch (but only if files changed)
+
+  print-image-location:
+    needs: deploy-dags-and-build-images
+    runs-on: ghes-runners-standard
+    steps:
+      - name: Display built image location
+        run: |
+          IMAGE="${{ needs.deploy-dags-and-build-images.outputs.image_location }}"
+          if [ -z "$IMAGE" ]; then
+            echo "No Docker image was built (no changes detected or skipped)."
+          else
+            echo "✅ Built Docker image location: $IMAGE"
+          fi
